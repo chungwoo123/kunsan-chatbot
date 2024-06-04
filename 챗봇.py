@@ -16,16 +16,21 @@ def load_conversation_data(directory):
     for filename in os.listdir(directory):
         if filename.endswith(".json"):
             file_path = os.path.join(directory, filename)
-            with open(file_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                for item in data['info']:
-                    text = item['annotations']['text']
-                    lines = text.split('\n')
-                    for i in range(0, len(lines) - 1, 2):
-                        user_text = lines[i].split(': ')[1] if ': ' in lines[i] else ''
-                        bot_text = lines[i + 1].split(': ')[1] if ': ' in lines[i + 1] else ''
-                        if user_text and bot_text:
-                            conversations.append((user_text, bot_text))
+            try:
+                if os.path.getsize(file_path) > 0:  # 파일이 비어있지 않은 경우에만 읽기
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        for item in data['info']:
+                            text = item['annotations']['text']
+                            lines = text.split('\n')
+                            for i in range(0, len(lines) - 1, 2):
+                                user_text = lines[i].split(': ')[1] if ': ' in lines[i] else ''
+                                bot_text = lines[i + 1].split(': ')[1] if ': ' in lines[i + 1] else ''
+                                if user_text and bot_text:
+                                    conversations.append((user_text, bot_text))
+            except json.JSONDecodeError:
+                print(f"파일을 읽는 도중 오류가 발생했습니다: {file_path}")
+                continue
     return conversations
 
 # 대화 데이터 폴더 경로
@@ -37,6 +42,8 @@ conversation_pairs = load_conversation_data(conversation_directory)
 # 대화 데이터를 DataFrame으로 변환
 conversation_df = pd.DataFrame(conversation_pairs, columns=['user_text', 'bot_text'])
 
+# 데이터의 첫 몇 행 확인
+print(conversation_df.head())
 
 # 직업 데이터 로드 (이전 작업에서 동일)
 job_data = pd.read_csv(r'C:\Users\skykm\바탕 화면\직업_분류표.csv')
