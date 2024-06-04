@@ -37,8 +37,6 @@ conversation_pairs = load_conversation_data(conversation_directory)
 # 대화 데이터를 DataFrame으로 변환
 conversation_df = pd.DataFrame(conversation_pairs, columns=['user_text', 'bot_text'])
 
-# 데이터의 첫 몇 행 확인
-print(conversation_df.head())
 
 # 직업 데이터 로드 (이전 작업에서 동일)
 job_data = pd.read_csv(r'C:\Users\skykm\바탕 화면\직업_분류표.csv')
