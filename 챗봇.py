@@ -42,7 +42,7 @@ conversation_pairs = load_conversation_data(conversation_directory)
 conversation_df = pd.DataFrame(conversation_pairs, columns=['user_text', 'bot_text'])
 
 # 데이터의 첫 몇 행 확인
-
+print(conversation_df.head())
 
 # 직업 데이터 로드
 job_data = pd.read_csv(r'C:\Users\skykm\바탕 화면\직업_분류표.csv')
@@ -56,11 +56,19 @@ X = conversation_df['user_text']
 y = conversation_df['bot_text']
 
 # 토크나이저 설정 및 텍스트 시퀀스 변환
-tokenizer = Tokenizer(num_words=10000, oov_token='<OOV>')  # num_words를 5000에서 10000으로 증가
+tokenizer = Tokenizer(num_words=10000, oov_token='<OOV>')
 tokenizer.fit_on_texts(pd.concat([X, y]))
+
+# 시작 및 종료 토큰 추가
+start_token = '<start>'
+end_token = '<end>'
+tokenizer.fit_on_texts([start_token, end_token])
 
 X_sequences = tokenizer.texts_to_sequences(X)
 y_sequences = tokenizer.texts_to_sequences(y)
+
+# y 시퀀스에 시작 및 종료 토큰 추가
+y_sequences = [[tokenizer.word_index[start_token]] + seq + [tokenizer.word_index[end_token]] for seq in y_sequences]
 
 max_length = 50  # 패딩 길이를 100에서 50으로 감소
 X_padded = pad_sequences(X_sequences, maxlen=max_length, padding='post')
@@ -94,7 +102,7 @@ model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=
 # y_padded에 차원을 추가
 y_padded = np.expand_dims(y_padded, -1)
 
-model.fit([X_train, X_train], y_train, epochs=1, validation_data=([X_test, X_test], y_test))
+model.fit([X_train, X_train], y_train, epochs=20, validation_data=([X_test, X_test], y_test))
 
 # 예측 모델 구성
 encoder_model = Model(encoder_inputs, encoder_states)
@@ -114,7 +122,7 @@ decoder_model = Model(
 def decode_sequence(input_seq):
     states_value = encoder_model.predict(input_seq)
     target_seq = np.zeros((1, 1))
-    target_seq[0, 0] = tokenizer.word_index['<start>']
+    target_seq[0, 0] = tokenizer.word_index[start_token]
 
     stop_condition = False
     decoded_sentence = ''
@@ -128,7 +136,7 @@ def decode_sequence(input_seq):
         if sampled_word != '<OOV>':
             decoded_sentence += ' ' + sampled_word
 
-        if sampled_word == '<end>' or len(decoded_sentence) > max_length:
+        if sampled_word == end_token or len(decoded_sentence) > max_length:
             stop_condition = True
 
         target_seq = np.zeros((1, 1))
@@ -136,7 +144,7 @@ def decode_sequence(input_seq):
 
         states_value = [h, c]
 
-    return decoded_sentence
+    return decoded_sentence.strip()
 
 # 사용자 입력을 처리하고 예측하는 함수 작성
 def preprocess_input(user_input, tokenizer, max_length):
