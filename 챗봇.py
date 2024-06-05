@@ -56,7 +56,7 @@ X = conversation_df['user_text']
 y = conversation_df['bot_text']
 
 # 토크나이저 설정 및 텍스트 시퀀스 변환
-tokenizer = Tokenizer(num_words=10000, oov_token='<OOV>')
+tokenizer = Tokenizer(num_words=30000, oov_token='<OOV>')  # num_words를 10000에서 30000으로 증가
 tokenizer.fit_on_texts(pd.concat([X, y]))
 
 # 시작 및 종료 토큰 추가
@@ -73,6 +73,10 @@ y_sequences = tokenizer.texts_to_sequences(y)
 # y 시퀀스에 시작 및 종료 토큰 추가
 y_sequences = [[tokenizer.word_index[start_token]] + seq + [tokenizer.word_index[end_token]] for seq in y_sequences]
 
+# 레이블 값이 유효한지 확인하고 변환
+max_word_index = tokenizer.num_words - 1
+y_sequences = [[token if token <= max_word_index else tokenizer.word_index['<OOV>'] for token in seq] for seq in y_sequences]
+
 max_length = 50  # 패딩 길이를 100에서 50으로 감소
 X_padded = pad_sequences(X_sequences, maxlen=max_length, padding='post')
 y_padded = pad_sequences(y_sequences, maxlen=max_length, padding='post')
@@ -83,18 +87,18 @@ X_train, X_test, y_train, y_test = train_test_split(X_padded, y_padded, test_siz
 # seq2seq 모델 구성 및 학습
 # 인코더
 encoder_inputs = Input(shape=(max_length,))
-enc_emb = Embedding(input_dim=10000, output_dim=64)(encoder_inputs)
+enc_emb = Embedding(input_dim=30000, output_dim=64)(encoder_inputs)
 encoder_lstm = LSTM(64, return_sequences=True, return_state=True)
 encoder_outputs, state_h, state_c = encoder_lstm(enc_emb)
 encoder_states = [state_h, state_c]
 
 # 디코더
 decoder_inputs = Input(shape=(max_length,))
-dec_emb_layer = Embedding(input_dim=10000, output_dim=64)
+dec_emb_layer = Embedding(input_dim=30000, output_dim=64)
 dec_emb = dec_emb_layer(decoder_inputs)
 decoder_lstm = LSTM(64, return_sequences=True, return_state=True)
 decoder_outputs, _, _ = decoder_lstm(dec_emb, initial_state=encoder_states)
-decoder_dense = Dense(10000, activation='softmax')
+decoder_dense = Dense(30000, activation='softmax')
 decoder_outputs = decoder_dense(decoder_outputs)
 
 # 모델 정의
@@ -105,7 +109,7 @@ model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=
 # y_padded에 차원을 추가
 y_padded = np.expand_dims(y_padded, -1)
 
-model.fit([X_train, X_train], y_train, epochs=20, validation_data=([X_test, X_test], y_test))
+model.fit([X_train, X_train], y_train, epochs=1, validation_data=([X_test, X_test], y_test))
 
 # 예측 모델 구성
 encoder_model = Model(encoder_inputs, encoder_states)
