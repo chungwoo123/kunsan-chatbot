@@ -62,7 +62,10 @@ tokenizer.fit_on_texts(pd.concat([X, y]))
 # 시작 및 종료 토큰 추가
 start_token = '<start>'
 end_token = '<end>'
-tokenizer.fit_on_texts([start_token, end_token])
+
+# 토크나이저에 시작 및 종료 토큰 추가
+tokenizer.word_index[start_token] = len(tokenizer.word_index) + 1
+tokenizer.word_index[end_token] = len(tokenizer.word_index) + 1
 
 X_sequences = tokenizer.texts_to_sequences(X)
 y_sequences = tokenizer.texts_to_sequences(y)
