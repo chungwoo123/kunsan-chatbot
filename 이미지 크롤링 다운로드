@@ -1,0 +1,69 @@
+import os
+import sys
+import time
+import requests
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from bs4 import BeautifulSoup
+from PIL import Image
+from io import BytesIO
+
+def fetch_naver_images(query, save_dir, num_images=50):
+    # Selenium 설정
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')  # 브라우저 창을 표시하지 않음
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    driver.get(f"https://m.search.naver.com/search.naver?ssc=tab.m_image.all&where=m_image&sm=mtb_jum&query={query}")
+
+    # 스크롤을 내리며 이미지 수집
+    downloaded_images = 0
+    last_height = driver.execute_script("return document.body.scrollHeight")
+    
+    while downloaded_images < num_images:
+        # 페이지 소스를 가져와서 파싱
+        soup = BeautifulSoup(driver.page_source, 'html.parser')
+        image_tags = soup.find_all("img")
+
+        # 이미지 다운로드
+        for img_tag in image_tags:
+            if downloaded_images >= num_images:
+                break
+            try:
+                img_url = img_tag.get('src') or img_tag.get('data-src') or img_tag.get('data-iurl')
+                if img_url and img_url.startswith('http'):
+                    response = requests.get(img_url)
+                    img_data = response.content
+                    img = Image.open(BytesIO(img_data))
+                    img = img.resize((128, 128))  # 이미지 크기 조정
+                    if not os.path.exists(save_dir):
+                        os.makedirs(save_dir)
+                    img.save(os.path.join(save_dir, f'img_{downloaded_images+1}.jpg'))
+                    print(f'Image {downloaded_images+1} downloaded and resized from {img_url}')
+                    downloaded_images += 1
+                    time.sleep(3)  # 이미지 다운로드 후 대기 시간
+            except Exception as e:
+                print(f"Failed to download image {downloaded_images+1}: {e}")
+
+        # 스크롤 다운
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(2)  # 페이지 로딩을 위한 대기 시간
+        new_height = driver.execute_script("return document.body.scrollHeight")
+        
+        if new_height == last_height:
+            break
+        last_height = new_height
+
+    driver.quit()
+
+if __name__ == "__main__":
+    query = input('검색어를 입력하세요: ')
+    save_dir = r"C:\Users\skykm\plant disease" # 이미지 다운 파일경로
+    num_images = int(input('다운로드할 이미지 수를 입력하세요 (예: 50): '))
+    fetch_naver_images(query, save_dir, num_images)
+    sys.exit(0)
